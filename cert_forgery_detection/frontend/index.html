@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Certificate Tampering Detection</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f3f0;--surface:#ffffff;--border:#dddbd6;--border2:#c8c5be;
+  --text:#1a1916;--muted:#6b6760;--accent:#1a1916;--accent-light:#f0ede8;
+  --green:#1a6b3c;--green-bg:#edf7f2;--green-border:#a8d5bc;
+  --red:#9b1c1c;--red-bg:#fdf2f2;--red-border:#f5c0c0;
+  --blue:#1a3a6b;--blue-bg:#f0f4fb;--blue-border:#b0c4e8;
+  --amber:#7a4f00;--amber-bg:#fdf8ee;--amber-border:#e8d5a0;
+  --radius:8px;--shadow:0 1px 3px rgba(0,0,0,.08),0 4px 12px rgba(0,0,0,.06);
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;line-height:1.6;min-height:100vh;}
+.page{display:none;min-height:100vh}
+.page.active{display:flex;flex-direction:column}
+nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.nav-brand{font-size:15px;font-weight:600;color:var(--text);letter-spacing:-.01em;}
+.nav-right{display:flex;align-items:center;gap:16px}
+.nav-user{font-size:13px;color:var(--muted);font-family:'DM Mono',monospace;}
+.nav-logout{font-size:13px;color:var(--muted);background:none;border:1px solid var(--border);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.nav-logout:hover{border-color:var(--border2);color:var(--text)}
+.main{flex:1;padding:40px 32px;max-width:680px;margin:0 auto;width:100%}
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg);}
+.auth-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:40px;width:100%;max-width:400px;box-shadow:var(--shadow);}
+.auth-title{font-size:22px;font-weight:700;margin-bottom:6px;letter-spacing:-.02em;}
+.auth-sub{font-size:13px;color:var(--muted);margin-bottom:28px;line-height:1.5;}
+.auth-tabs{display:flex;margin-bottom:28px;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.auth-tab{flex:1;padding:9px;font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;background:none;border:none;cursor:pointer;color:var(--muted);transition:all .15s;}
+.auth-tab.active{background:var(--text);color:#fff;}
+.form-group{margin-bottom:16px}
+label{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:var(--text);}
+input[type=text],input[type=password],input[type=email]{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);transition:border-color .15s;outline:none;}
+input:focus{border-color:var(--text)}
+.input-hint{font-size:12px;color:var(--muted);margin-top:4px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 20px;border-radius:var(--radius);font-size:14px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;border:none;transition:all .15s;}
+.btn-primary{background:var(--text);color:#fff}
+.btn-primary:hover{opacity:.88}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-outline{background:none;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--border2);background:var(--accent-light)}
+.btn-full{width:100%}
+.btn-sm{padding:7px 14px;font-size:13px}
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.link-btn{background:none;border:none;color:var(--text);font-size:13px;cursor:pointer;text-decoration:underline;font-family:'DM Sans',sans-serif;padding:0;transition:opacity .15s;}
+.link-btn:hover{opacity:.7}
+.alert{padding:10px 14px;border-radius:var(--radius);font-size:13px;margin-bottom:16px;display:none;line-height:1.5;}
+.alert-error{background:var(--red-bg);border:1px solid var(--red-border);color:var(--red)}
+.alert-success{background:var(--green-bg);border:1px solid var(--green-border);color:var(--green)}
+.alert-info{background:var(--blue-bg);border:1px solid var(--blue-border);color:var(--blue)}
+.dashboard-header{margin-bottom:32px}
+.dashboard-title{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-bottom:6px}
+.dashboard-sub{color:var(--muted);font-size:14px}
+.card-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:32px}
+.action-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;cursor:pointer;transition:all .15s;text-align:left;}
+.action-card:hover{border-color:var(--border2);box-shadow:var(--shadow);transform:translateY(-1px)}
+.card-label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.card-title{font-size:16px;font-weight:600;margin-bottom:6px;letter-spacing:-.01em}
+.card-desc{font-size:13px;color:var(--muted);line-height:1.5}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:28px;margin-bottom:20px;}
+.panel-title{font-size:16px;font-weight:600;margin-bottom:4px;letter-spacing:-.01em}
+.panel-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
+.type-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.type-btn{padding:14px;border:1px solid var(--border);border-radius:var(--radius);background:none;cursor:pointer;font-family:'DM Sans',sans-serif;text-align:left;transition:all .15s;}
+.type-btn:hover{border-color:var(--border2);background:var(--accent-light)}
+.type-btn.selected{border-color:var(--text);background:var(--accent-light)}
+.type-btn-title{font-size:14px;font-weight:600;margin-bottom:2px}
+.type-btn-sub{font-size:12px;color:var(--muted)}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:32px 20px;text-align:center;cursor:pointer;position:relative;transition:all .15s;}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--text);background:var(--accent-light);}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.upload-zone-title{font-size:14px;font-weight:500;margin-bottom:4px}
+.upload-zone-sub{font-size:12px;color:var(--muted)}
+.file-chosen{font-size:12px;font-family:'DM Mono',monospace;color:var(--green);margin-top:10px;word-break:break-all;}
+.result-panel{border-radius:10px;padding:24px;margin-top:20px;border:1px solid;}
+.result-panel.genuine{background:var(--green-bg);border-color:var(--green-border)}
+.result-panel.tampered{background:var(--red-bg);border-color:var(--red-border)}
+.result-panel.notfound{background:var(--blue-bg);border-color:var(--blue-border)}
+.result-panel.warning{background:var(--amber-bg);border-color:var(--amber-border)}
+.verdict{font-size:18px;font-weight:700;margin-bottom:6px;letter-spacing:-.01em}
+.verdict.ok{color:var(--green)}
+.verdict.bad{color:var(--red)}
+.verdict.mid{color:var(--blue)}
+.verdict.wrn{color:var(--amber)}
+.verdict-sub{font-size:13px;color:var(--muted);margin-bottom:16px}
+.info-table{width:100%;border-collapse:collapse;margin-top:12px}
+.info-table td{padding:7px 0;font-size:13px;border-bottom:1px solid var(--border);vertical-align:top;}
+.info-table td:first-child{color:var(--muted);font-size:12px;width:40%;padding-right:12px;}
+.info-table tr:last-child td{border-bottom:none}
+.hash-display{font-family:'DM Mono',monospace;font-size:10px;word-break:break-all;background:rgba(0,0,0,.04);border-radius:6px;padding:8px 10px;margin-top:4px;color:var(--muted);line-height:1.7;}
+.hash-match{color:var(--green);font-weight:600}
+.hash-mismatch{color:var(--red);font-weight:600}
+.divider{height:1px;background:var(--border);margin:20px 0}
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:20px;padding:0;transition:color .15s;}
+.back-link:hover{color:var(--text)}
+.section-label{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+
+/* Field comparison table */
+.field-table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px;}
+.field-table th{padding:8px 12px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--border);}
+.field-table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.field-table tr:last-child td{border-bottom:none}
+.field-table .mono{font-family:'DM Mono',monospace;font-size:12px;}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.04em;}
+.badge-match{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);}
+.badge-tampered{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);}
+.badge-unknown{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-border);}
+
+.hidden{display:none!important}
+@media(max-width:600px){
+  .main{padding:24px 16px}
+  .auth-box{padding:28px 20px}
+  nav{padding:0 16px}
+  .card-grid,.type-row{grid-template-columns:1fr}
+  .field-table th:nth-child(2),.field-table td:nth-child(2),
+  .field-table th:nth-child(3),.field-table td:nth-child(3){display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LANDING ══ -->
+<div id="page-landing" class="page active">
+  <div class="auth-wrap">
+    <div class="auth-box">
+      <div class="auth-title">Certificate Tampering Detection</div>
+      <div class="auth-sub">Select your role to continue.</div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <button class="btn btn-primary btn-full" style="padding:14px;" onclick="showPage('page-uploader-login')">I am an Uploader</button>
+        <button class="btn btn-outline btn-full" style="padding:14px;" onclick="showPage('page-verifier-login')">I am a Verifier</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ UPLOADER LOGIN ══ -->
+<div id="page-uploader-login" class="page">
+  <div class="auth-wrap">
+    <div class="auth-box">
+      <button class="back-link" onclick="showPage('page-landing')" style="margin-bottom:16px;">&larr; Back</button>
+      <div class="auth-title">Uploader Login</div>
+      <div class="auth-sub">Enter your uploader credentials to store certificates on the blockchain.</div>
+      <div id="uploader-err" class="alert alert-error"></div>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="uploader-uid" placeholder="Enter username" autocomplete="username"/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="uploader-pwd" placeholder="Enter password" onkeydown="if(event.key==='Enter')doUploaderLogin()"/>
+      </div>
+      <button class="btn btn-primary btn-full" id="uploader-login-btn" onclick="doUploaderLogin()">Sign In</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ VERIFIER LOGIN / REGISTER ══ -->
+<div id="page-verifier-login" class="page">
+  <div class="auth-wrap">
+    <div class="auth-box">
+      <button class="back-link" onclick="showPage('page-landing')" style="margin-bottom:16px;">&larr; Back</button>
+      <div class="auth-title">Verifier Access</div>
+      <div class="auth-sub">Sign in or create an account to verify certificates.</div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign In</button>
+        <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Register</button>
+      </div>
+      <!-- Login -->
+      <div id="vl-form">
+        <div id="vl-err" class="alert alert-error"></div>
+        <div class="form-group"><label>Username</label><input type="text" id="vl-uid" placeholder="Enter username"/></div>
+        <div class="form-group"><label>Password</label><input type="password" id="vl-pwd" placeholder="Enter password" onkeydown="if(event.key==='Enter')doVerifierLogin()"/></div>
+        <div style="text-align:right;margin-bottom:16px;"><button class="link-btn" onclick="showPage('page-forgot')">Forgot password?</button></div>
+        <button class="btn btn-primary btn-full" id="vl-btn" onclick="doVerifierLogin()">Sign In</button>
+      </div>
+      <!-- Register -->
+      <div id="vr-form" class="hidden">
+        <div id="vr-err" class="alert alert-error"></div>
+        <div id="vr-ok" class="alert alert-success"></div>
+        <div class="form-group"><label>Username</label><input type="text" id="vr-uid" placeholder="Choose a username"/></div>
+        <div class="form-group"><label>Email</label><input type="email" id="vr-email" placeholder="your@email.com"/></div>
+        <div class="form-group"><label>Organization <span style="color:var(--muted);font-weight:400">(optional)</span></label><input type="text" id="vr-org" placeholder="University or company name"/></div>
+        <div class="form-group"><label>Password</label><input type="password" id="vr-pwd" placeholder="Min. 6 characters"/><div class="input-hint">Minimum 6 characters</div></div>
+        <button class="btn btn-primary btn-full" id="vr-btn" onclick="doVerifierRegister()">Create Account</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ FORGOT PASSWORD ══ -->
+<div id="page-forgot" class="page">
+  <div class="auth-wrap">
+    <div class="auth-box">
+      <button class="back-link" onclick="showPage('page-verifier-login')" style="margin-bottom:16px;">&larr; Back to Sign In</button>
+      <div class="auth-title">Reset Password</div>
+      <div class="auth-sub">Enter your registered email address to get a reset token.</div>
+      <div id="fp-err" class="alert alert-error"></div>
+      <div id="fp-ok" class="alert alert-success"></div>
+      <div id="fp-token-box" class="alert alert-info hidden"></div>
+      <div id="fp-step1">
+        <div class="form-group"><label>Email Address</label><input type="email" id="fp-email" placeholder="your@email.com" onkeydown="if(event.key==='Enter')doForgotPassword()"/></div>
+        <button class="btn btn-primary btn-full" id="fp-btn" onclick="doForgotPassword()">Get Reset Token</button>
+      </div>
+      <div id="fp-step2" class="hidden">
+        <div class="divider"></div>
+        <div class="section-label">Set New Password</div>
+        <div class="form-group"><label>Reset Token</label><input type="text" id="fp-token-input" placeholder="Paste token here"/></div>
+        <div class="form-group"><label>New Password</label><input type="password" id="fp-newpwd" placeholder="Min. 6 characters"/></div>
+        <button class="btn btn-primary btn-full" id="fp-reset-btn" onclick="doResetPassword()">Reset Password</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ UPLOADER DASHBOARD ══ -->
+<div id="page-uploader-dash" class="page">
+  <nav>
+    <span class="nav-brand">Certificate Tampering Detection</span>
+    <div class="nav-right">
+      <span class="nav-user" id="uploader-nav-user"></span>
+      <button class="nav-logout" onclick="doLogout()">Sign Out</button>
+    </div>
+  </nav>
+  <div class="main">
+    <div class="dashboard-header">
+      <div class="dashboard-title">Store Certificate</div>
+      <div class="dashboard-sub">Upload a digital certificate to record its hash on the blockchain.</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Select Certificate Type</div>
+      <div class="panel-sub">Choose which standard the certificate belongs to.</div>
+      <div class="type-row">
+        <button class="type-btn" id="store-type-10" onclick="selectStoreType('10')"><div class="type-btn-title">10th Standard</div><div class="type-btn-sub">SSLC</div></button>
+        <button class="type-btn" id="store-type-12" onclick="selectStoreType('12')"><div class="type-btn-title">12th Standard</div><div class="type-btn-sub">HSC</div></button>
+      </div>
+      <div class="section-label">Upload Certificate PDF</div>
+      <div class="upload-zone" id="store-zone" ondragover="onDrag(event,'store-zone')" ondragleave="offDrag('store-zone')" ondrop="onDrop(event,'store-file','store-zone')">
+        <input type="file" id="store-file" accept=".pdf" onchange="onFileChange('store-file','store-fname')"/>
+        <div class="upload-zone-title">Drop PDF here or click to browse</div>
+        <div class="upload-zone-sub">Original digital certificate only</div>
+        <div class="file-chosen" id="store-fname"></div>
+      </div>
+      <div id="store-err" class="alert alert-error" style="margin-top:16px;"></div>
+      <button class="btn btn-primary btn-full" id="store-btn" style="margin-top:16px;" onclick="doStore()">Store on Blockchain</button>
+    </div>
+    <div id="store-result"></div>
+  </div>
+</div>
+
+<!-- ══ VERIFIER DASHBOARD ══ -->
+<div id="page-verifier-dash" class="page">
+  <nav>
+    <span class="nav-brand">Certificate Tampering Detection</span>
+    <div class="nav-right">
+      <span class="nav-user" id="verifier-nav-user"></span>
+      <button class="nav-logout" onclick="doLogout()">Sign Out</button>
+    </div>
+  </nav>
+  <div class="main">
+    <div class="dashboard-header">
+      <div class="dashboard-title">Verify Certificate</div>
+      <div class="dashboard-sub">Check whether a submitted certificate is genuine or has been tampered with.</div>
+    </div>
+
+    <!-- Step 1: choose digital or scanned -->
+    <div id="v-step1">
+      <div class="section-label">Select Document Type</div>
+      <div class="card-grid">
+        <button class="action-card" onclick="selectVerifyType('digital')">
+          <div class="card-label">Digital</div>
+          <div class="card-title">Digital Certificate</div>
+          <div class="card-desc">PDF from the official board portal. Verified against blockchain hash.</div>
+        </button>
+        <button class="action-card" onclick="selectVerifyType('scanned')">
+          <div class="card-label">Scanned</div>
+          <div class="card-title">Scanned Certificate</div>
+          <div class="card-desc">Physical certificate scanned as PDF. QR validation and field-level comparison.</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Digital flow -->
+    <div id="v-digital" class="hidden">
+      <button class="back-link" onclick="resetVerify()">&larr; Back</button>
+      <div class="panel">
+        <div class="panel-title">Digital Certificate Verification</div>
+        <div class="panel-sub">Fields are extracted, a hash is computed and compared against the blockchain record.</div>
+        <div class="section-label">Certificate Type</div>
+        <div class="type-row">
+          <button class="type-btn" id="vd-type-10" onclick="selectVDType('10')"><div class="type-btn-title">10th Standard</div><div class="type-btn-sub">SSLC</div></button>
+          <button class="type-btn" id="vd-type-12" onclick="selectVDType('12')"><div class="type-btn-title">12th Standard</div><div class="type-btn-sub">HSC</div></button>
+        </div>
+        <div class="section-label">Upload Certificate</div>
+        <div class="upload-zone" id="vd-zone" ondragover="onDrag(event,'vd-zone')" ondragleave="offDrag('vd-zone')" ondrop="onDrop(event,'vd-file','vd-zone')">
+          <input type="file" id="vd-file" accept=".pdf" onchange="onFileChange('vd-file','vd-fname')"/>
+          <div class="upload-zone-title">Drop PDF here or click to browse</div>
+          <div class="upload-zone-sub">The certificate you want to verify</div>
+          <div class="file-chosen" id="vd-fname"></div>
+        </div>
+        <div id="vd-err" class="alert alert-error" style="margin-top:16px;"></div>
+        <button class="btn btn-primary btn-full" id="vd-btn" style="margin-top:16px;" onclick="doVerifyDigital()">Verify Certificate</button>
+      </div>
+      <div id="vd-result"></div>
+    </div>
+
+    <!-- Scanned flow -->
+    <div id="v-scanned" class="hidden">
+      <button class="back-link" onclick="resetVerify()">&larr; Back</button>
+      <div class="panel">
+        <div class="panel-title">Scanned Certificate Verification</div>
+        <div class="panel-sub">QR code is detected and validated. Then key fields are extracted via OCR and compared with the official digital copy.</div>
+        <div class="section-label">Certificate Type</div>
+        <div class="type-row">
+          <button class="type-btn" id="vs-type-10" onclick="selectVSType('10')"><div class="type-btn-title">10th Standard</div><div class="type-btn-sub">SSLC</div></button>
+          <button class="type-btn" id="vs-type-12" onclick="selectVSType('12')"><div class="type-btn-title">12th Standard</div><div class="type-btn-sub">HSC</div></button>
+        </div>
+        <div class="section-label">Upload Scanned PDF</div>
+        <div class="upload-zone" id="vs-zone" ondragover="onDrag(event,'vs-zone')" ondragleave="offDrag('vs-zone')" ondrop="onDrop(event,'vs-file','vs-zone')">
+          <input type="file" id="vs-file" accept=".pdf" onchange="onFileChange('vs-file','vs-fname')"/>
+          <div class="upload-zone-title">Drop scanned PDF here or click to browse</div>
+          <div class="upload-zone-sub">QR code and fields will be checked automatically</div>
+          <div class="file-chosen" id="vs-fname"></div>
+        </div>
+        <div id="vs-err" class="alert alert-error" style="margin-top:16px;"></div>
+        <button class="btn btn-primary btn-full" id="vs-btn" style="margin-top:16px;" onclick="doVerifyScanned()">Verify Certificate</button>
+      </div>
+      <div id="vs-result"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── State ──
+let storeType=null, vdType=null, vsType=null;
+
+// ── Pages ──
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+function show(id){document.getElementById(id).classList.remove('hidden')}
+function hide(id){document.getElementById(id).classList.add('hidden')}
+
+// ── Session check ──
+window.addEventListener('load',async()=>{
+  try{
+    const d=await(await fetch('/api/auth/me',{credentials:'include'})).json();
+    if(d.logged_in){
+      if(d.role==='uploader'){document.getElementById('uploader-nav-user').textContent=d.username;showPage('page-uploader-dash');}
+      else{document.getElementById('verifier-nav-user').textContent=d.username;showPage('page-verifier-dash');}
+    }
+  }catch(e){}
+});
+
+// ── Alerts ──
+function showAlert(id,msg){const e=document.getElementById(id);e.textContent=msg;e.style.display='block';}
+function hideAlert(id){const e=document.getElementById(id);e.textContent='';e.style.display='none';}
+
+// ── Tab switch ──
+function switchTab(tab){
+  if(tab==='login'){show('vl-form');hide('vr-form');document.getElementById('tab-login').classList.add('active');document.getElementById('tab-register').classList.remove('active');}
+  else{hide('vl-form');show('vr-form');document.getElementById('tab-register').classList.add('active');document.getElementById('tab-login').classList.remove('active');}
+}
+
+// ── Upload helpers ──
+function onFileChange(inp,disp){const f=document.getElementById(inp).files[0];document.getElementById(disp).textContent=f?f.name:'';}
+function onDrag(e,z){e.preventDefault();document.getElementById(z).classList.add('dragover');}
+function offDrag(z){document.getElementById(z).classList.remove('dragover');}
+function onDrop(e,inp,z){
+  e.preventDefault();offDrag(z);
+  const f=e.dataTransfer.files[0];if(!f)return;
+  const dt=new DataTransfer();dt.items.add(f);
+  const el=document.getElementById(inp);el.files=dt.files;el.dispatchEvent(new Event('change'));
+}
+function setBtnLoading(id,loading,txt){
+  const b=document.getElementById(id);b.disabled=loading;
+  b.innerHTML=loading?'<span class="spinner"></span> Processing...':txt;
+}
+
+// ── Uploader login ──
+async function doUploaderLogin(){
+  hideAlert('uploader-err');
+  const uid=document.getElementById('uploader-uid').value.trim();
+  const pwd=document.getElementById('uploader-pwd').value.trim();
+  if(!uid||!pwd){showAlert('uploader-err','Please enter username and password.');return;}
+  setBtnLoading('uploader-login-btn',true,'Sign In');
+  try{
+    const d=await(await fetch('/api/auth/uploader/login',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:uid,password:pwd})})).json();
+    if(d.success){document.getElementById('uploader-nav-user').textContent=uid;showPage('page-uploader-dash');}
+    else showAlert('uploader-err',d.error||'Login failed.');
+  }catch(e){showAlert('uploader-err','Server error.');}
+  finally{setBtnLoading('uploader-login-btn',false,'Sign In');}
+}
+
+// ── Verifier login ──
+async function doVerifierLogin(){
+  hideAlert('vl-err');
+  const uid=document.getElementById('vl-uid').value.trim();
+  const pwd=document.getElementById('vl-pwd').value.trim();
+  if(!uid||!pwd){showAlert('vl-err','Please enter username and password.');return;}
+  setBtnLoading('vl-btn',true,'Sign In');
+  try{
+    const d=await(await fetch('/api/auth/verifier/login',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:uid,password:pwd})})).json();
+    if(d.success){document.getElementById('verifier-nav-user').textContent=d.username;showPage('page-verifier-dash');}
+    else showAlert('vl-err',d.error||'Login failed.');
+  }catch(e){showAlert('vl-err','Server error.');}
+  finally{setBtnLoading('vl-btn',false,'Sign In');}
+}
+
+// ── Verifier register ──
+async function doVerifierRegister(){
+  hideAlert('vr-err');hideAlert('vr-ok');
+  const uid=document.getElementById('vr-uid').value.trim();
+  const email=document.getElementById('vr-email').value.trim();
+  const org=document.getElementById('vr-org').value.trim();
+  const pwd=document.getElementById('vr-pwd').value.trim();
+  if(!uid||!email||!pwd){showAlert('vr-err','Username, email and password are required.');return;}
+  setBtnLoading('vr-btn',true,'Create Account');
+  try{
+    const d=await(await fetch('/api/auth/verifier/register',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:uid,email,organization:org,password:pwd})})).json();
+    if(d.success){showAlert('vr-ok','Account created. You can now sign in.');setTimeout(()=>switchTab('login'),1500);}
+    else showAlert('vr-err',d.error||'Registration failed.');
+  }catch(e){showAlert('vr-err','Server error.');}
+  finally{setBtnLoading('vr-btn',false,'Create Account');}
+}
+
+// ── Forgot password ──
+async function doForgotPassword(){
+  hideAlert('fp-err');hideAlert('fp-ok');
+  document.getElementById('fp-token-box').style.display='none';
+  const email=document.getElementById('fp-email').value.trim();
+  if(!email){showAlert('fp-err','Please enter your email address.');return;}
+  setBtnLoading('fp-btn',true,'Get Reset Token');
+  try{
+    const d=await(await fetch('/api/auth/verifier/forgot-password',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})})).json();
+    showAlert('fp-ok',d.message);
+    if(d.token){const tb=document.getElementById('fp-token-box');tb.textContent='Reset token: '+d.token;tb.style.display='block';document.getElementById('fp-token-input').value=d.token;}
+    show('fp-step2');
+  }catch(e){showAlert('fp-err','Server error.');}
+  finally{setBtnLoading('fp-btn',false,'Get Reset Token');}
+}
+async function doResetPassword(){
+  hideAlert('fp-err');
+  const token=document.getElementById('fp-token-input').value.trim();
+  const pwd=document.getElementById('fp-newpwd').value.trim();
+  if(!token||!pwd){showAlert('fp-err','Please enter token and new password.');return;}
+  setBtnLoading('fp-reset-btn',true,'Reset Password');
+  try{
+    const d=await(await fetch('/api/auth/verifier/reset-password',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,new_password:pwd})})).json();
+    if(d.success){showAlert('fp-ok','Password reset. Redirecting...');setTimeout(()=>{showPage('page-verifier-login');switchTab('login');},1800);}
+    else showAlert('fp-err',d.error||'Reset failed.');
+  }catch(e){showAlert('fp-err','Server error.');}
+  finally{setBtnLoading('fp-reset-btn',false,'Reset Password');}
+}
+
+// ── Logout ──
+async function doLogout(){
+  await fetch('/api/auth/logout',{method:'POST',credentials:'include'});
+  storeType=vdType=vsType=null;
+  showPage('page-landing');
+}
+
+// ── Store ──
+function selectStoreType(t){storeType=t;document.getElementById('store-type-10').classList.toggle('selected',t==='10');document.getElementById('store-type-12').classList.toggle('selected',t==='12');}
+async function doStore(){
+  hideAlert('store-err');
+  if(!storeType){showAlert('store-err','Please select a certificate type.');return;}
+  const file=document.getElementById('store-file').files[0];
+  if(!file){showAlert('store-err','Please select a PDF file.');return;}
+  setBtnLoading('store-btn',true,'Store on Blockchain');
+  document.getElementById('store-result').innerHTML='';
+  const fd=new FormData();fd.append('file',file);fd.append('cert_type',storeType);
+  try{
+    const d=await(await fetch('/api/store',{method:'POST',credentials:'include',body:fd})).json();
+    if(d.error)throw new Error(d.error);
+    renderStoreResult(d.result);
+  }catch(e){showAlert('store-err',e.message);}
+  finally{setBtnLoading('store-btn',false,'Store on Blockchain');}
+}
+function renderStoreResult(r) {
+  const s   = r.student;
+  const h   = r.hashes;
+  const bc  = r.blockchain || {};
+  const reg = s.permanent_register_no || s.number || 'N/A';
+  const tot = r.second_year?.total_marks ?? s.total_marks ?? 'N/A';
+
+  // Already stored — no duplicate
+  if (bc.already_stored && !bc.hash_conflict) {
+    document.getElementById('store-result').innerHTML = `
+      <div class="result-panel warning">
+        <div class="verdict wrn">Already Stored</div>
+        <div class="verdict-sub">This certificate is already stored on the blockchain. No duplicate transaction was sent.</div>
+        <table class="info-table">
+          <tr><td>Name</td><td>${s.name || 'N/A'}</td></tr>
+          <tr><td>Register No</td><td>${reg}</td></tr>
+          <tr><td>Session</td><td>${s.session || 'N/A'}</td></tr>
+          <tr><td>Total Marks</td><td>${tot}</td></tr>
+        </table>
+        <div style="margin-top:16px;"><div class="section-label">Stored Hash</div>
+        <div class="hash-display">${bc.existing_hash || h.composite_hash}</div></div>
+      </div>`;
+    return;
+  }
+
+  // Hash conflict — different certificate with same register number
+  if (bc.hash_conflict) {
+    document.getElementById('store-result').innerHTML = `
+      <div class="result-panel tampered">
+        <div class="verdict bad">Storage Blocked</div>
+        <div class="verdict-sub">A different certificate with this register number is already on the blockchain. Cannot overwrite.</div>
+        <table class="info-table">
+          <tr><td>Register No</td><td>${reg}</td></tr>
+          <tr><td>Existing Hash</td><td style="font-family:'DM Mono',monospace;font-size:11px;word-break:break-all;">${bc.existing_hash}</td></tr>
+          <tr><td>New Hash</td><td style="font-family:'DM Mono',monospace;font-size:11px;word-break:break-all;">${h.composite_hash}</td></tr>
+        </table>
+      </div>`;
+    return;
+  }
+
+  // Successfully stored
+  document.getElementById('store-result').innerHTML = `
+    <div class="result-panel genuine">
+      <div class="verdict ok">Stored Successfully</div>
+      <div class="verdict-sub">Certificate hash recorded on the Sepolia blockchain.</div>
+      <table class="info-table">
+        <tr><td>Name</td><td>${s.name || 'N/A'}</td></tr>
+        <tr><td>Register No</td><td>${reg}</td></tr>
+        <tr><td>Session</td><td>${s.session || 'N/A'}</td></tr>
+        <tr><td>Total Marks</td><td>${tot}</td></tr>
+        ${bc.tx_hash ? `<tr><td>TX Hash</td><td style="font-family:'DM Mono',monospace;font-size:11px;word-break:break-all;">${bc.tx_hash}</td></tr>` : ''}
+        ${bc.explorer ? `<tr><td>Blockchain</td><td><a href="${bc.explorer}" target="_blank" style="color:var(--green);font-size:13px;">View on Etherscan</a></td></tr>` : ''}
+      </table>
+      <div style="margin-top:16px;"><div class="section-label">Composite Hash</div>
+      <div class="hash-display">${h.composite_hash || 'N/A'}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px;">${h.hash_note || ''}</div></div>
+    </div>`;
+}
+// ── Verify routing ──
+function selectVerifyType(t){hide('v-step1');t==='digital'?show('v-digital'):show('v-scanned');}
+function resetVerify(){
+  show('v-step1');hide('v-digital');hide('v-scanned');
+  document.getElementById('vd-result').innerHTML='';
+  document.getElementById('vs-result').innerHTML='';
+  vdType=vsType=null;
+  ['vd-type-10','vd-type-12','vs-type-10','vs-type-12'].forEach(id=>document.getElementById(id).classList.remove('selected'));
+}
+function selectVDType(t){vdType=t;document.getElementById('vd-type-10').classList.toggle('selected',t==='10');document.getElementById('vd-type-12').classList.toggle('selected',t==='12');}
+function selectVSType(t){vsType=t;document.getElementById('vs-type-10').classList.toggle('selected',t==='10');document.getElementById('vs-type-12').classList.toggle('selected',t==='12');}
+
+// ── Verify digital ──
+async function doVerifyDigital(){
+  hideAlert('vd-err');
+  if(!vdType){showAlert('vd-err','Please select a certificate type.');return;}
+  const file=document.getElementById('vd-file').files[0];
+  if(!file){showAlert('vd-err','Please select a PDF file.');return;}
+  setBtnLoading('vd-btn',true,'Verify Certificate');
+  document.getElementById('vd-result').innerHTML='';
+  const fd=new FormData();fd.append('file',file);fd.append('cert_type',vdType);
+  try{
+    const d=await(await fetch('/api/verify/digital',{method:'POST',credentials:'include',body:fd})).json();
+    if(d.error)throw new Error(d.error);
+    renderDigitalResult(d);
+  }catch(e){showAlert('vd-err',e.message);}
+  finally{setBtnLoading('vd-btn',false,'Verify Certificate');}
+}
+function renderDigitalResult(data){
+  const s=data.student,vr=data.verify_result;
+  const map={
+    'GENUINE':{cls:'genuine',vcls:'ok',title:'Genuine',sub:'Hashes match. This certificate is authentic and unmodified.'},
+    'TAMPERED':{cls:'tampered',vcls:'bad',title:'Tampered',sub:'Hash mismatch. One or more fields have been altered.'},
+    'NOT_FOUND':{cls:'notfound',vcls:'mid',title:'Not Found',sub:'Register number not found on blockchain.possibly tampered'},
+  };
+  const m=map[vr.verdict]||map['NOT_FOUND'];
+  document.getElementById('vd-result').innerHTML=`
+    <div class="result-panel ${m.cls}">
+      <div class="verdict ${m.vcls}">${m.title}</div>
+      <div class="verdict-sub">${m.sub}</div>
+      <table class="info-table">
+        <tr><td>Name</td><td>${s.name||'N/A'}</td></tr>
+        <tr><td>Register No</td><td>${s.permanent_register_no||'N/A'}</td></tr>
+        <tr><td>Session</td><td>${s.session||'N/A'}</td></tr>
+        <tr><td>Total Marks</td><td>${s.total_marks??'N/A'}</td></tr>
+        
+      </table>
+      <div style="margin-top:16px;"><div class="section-label">Hash Comparison</div>
+      <div class="hash-display">
+        <div style="margin-bottom:4px;"><span style="color:var(--muted)">Computed : </span><span class="${vr.match?'hash-match':'hash-mismatch'}">${data.fresh_hash}</span></div>
+        <div><span style="color:var(--muted)">Stored   : </span><span class="${vr.match?'hash-match':'hash-mismatch'}">${vr.stored_hash||'NOT FOUND'}</span></div>
+      </div></div>
+    </div>`;
+}
+
+// ── Verify scanned ──
+async function doVerifyScanned(){
+  hideAlert('vs-err');
+  if(!vsType){showAlert('vs-err','Please select a certificate type.');return;}
+  const file=document.getElementById('vs-file').files[0];
+  if(!file){showAlert('vs-err','Please select a PDF file.');return;}
+  setBtnLoading('vs-btn',true,'Verify Certificate');
+  document.getElementById('vs-result').innerHTML='';
+  const fd=new FormData();fd.append('file',file);fd.append('cert_type',vsType);
+  try{
+    const d=await(await fetch('/api/verify/scanned',{method:'POST',credentials:'include',body:fd})).json();
+    if(d.error)throw new Error(d.error);
+    renderScannedResult(d);
+  }catch(e){showAlert('vs-err',e.message);}
+  finally{setBtnLoading('vs-btn',false,'Verify Certificate');}
+}
+
+function renderScannedResult(data){
+  let cls,vcls,title,sub,fieldsHtml='',extraHtml='';
+
+  if(!data.qr_found){
+    cls='warning';vcls='wrn';title='No QR Code Found';
+    sub='No QR code could be detected. Cannot proceed with automated verification.';
+  } else if(data.verdict==='TAMPERED'&&!data.fields?.length){
+    cls='tampered';vcls='bad';title='Tampered or Unofficial';
+    sub='QR code URL does not match the official portal domain or path.';
+  } else if(data.verdict==='INVALID_QR'){
+    cls='warning';vcls='wrn';title='Invalid QR';
+    sub='QR found but does not contain a valid URL.';
+  } else if(data.verdict==='GENUINE'){
+    cls='genuine';vcls='ok';title='Genuine';
+    sub='QR URL is valid and all extracted fields match the official digital copy.';
+  } else if(data.verdict==='TAMPERED'){
+    cls='tampered';vcls='bad';title='Tampered';
+    sub='QR URL is valid but one or more fields differ from the official digital copy.';
+  } else if(data.verdict==='QR_ONLY'){
+    cls='warning';vcls='wrn';title='QR Valid — Field Check Incomplete';
+    sub=data.message||'QR URL passed but field-level OCR could not be completed.';
+  } else {
+    cls='notfound';vcls='mid';title='Unknown';sub=data.message||'';
+  }
+
+  // QR URL info
+  if(data.qr_url){
+    extraHtml=`<table class="info-table" style="margin-top:14px;">
+      <tr><td>QR URL</td><td style="word-break:break-all;font-size:12px;">${data.qr_url}</td></tr>
+      <tr><td>Domain valid</td><td>${data.domain_ok?'Yes':'No'}</td></tr>
+      <tr><td>Path valid</td><td>${data.path_ok?'Yes':'No'}</td></tr>
+    </table>`;
+  }
+
+  // Field comparison table
+  if(data.fields&&data.fields.length>0){
+    const rows=data.fields.map(f=>`
+      <tr>
+        <td>${f.field}</td>
+        <td class="mono">${f.digital||'N/A'}</td>
+        <td class="mono">${f.scanned||'N/A'}</td>
+        <td><span class="badge ${f.status==='MATCH'?'badge-match':f.status==='TAMPERED'?'badge-tampered':'badge-unknown'}">${f.status}</span></td>
+      </tr>`).join('');
+    fieldsHtml=`
+      <div style="margin-top:16px;">
+        <div class="section-label">Field Comparison</div>
+        <table class="field-table">
+          <thead><tr><th>Field</th><th>Digital Copy</th><th>Scanned Copy</th><th>Status</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        ${data.easyocr?'<div style="font-size:11px;color:var(--muted);margin-top:8px;">Extracted using EasyOCR + Tesseract</div>':''}
+      </div>`;
+  }
+
+  document.getElementById('vs-result').innerHTML=`
+    <div class="result-panel ${cls}">
+      <div class="verdict ${vcls}">${title}</div>
+      <div class="verdict-sub">${sub}</div>
+      ${extraHtml}
+      ${fieldsHtml}
+    </div>`;
+}
+</script>
+</body>
+</html>
